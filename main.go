@@ -20,6 +20,7 @@ const (
 
 type IRepository interface {
 	Create(*pb.Consignment) (*pb.Consignment, error)
+	GetAll() []*pb.Consignment
 }
 
 // Repository - 一个模拟数据存储的虚拟仓库，以后我们会替换成真实的数据仓库
@@ -31,6 +32,10 @@ func (repo *Repository) Create(consignment *pb.Consignment) (*pb.Consignment, er
 	updated := append(repo.consignments, consignment)
 	repo.consignments = updated
 	return consignment, nil
+}
+
+func (repo *Repository) GetAll() []*pb.Consignment {
+	return repo.consignments
 }
 
 // 服务需要实现所有在 protobuf 里定义的方法。
@@ -48,6 +53,11 @@ func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment) (*
 	}
 	// 返回和 protobuf 中定义匹配的 `Response` 消息
 	return &pb.Response{Created: true, Consignment: consignment}, nil
+}
+
+func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest) (*pb.Response, error) {
+	consignments := s.repo.GetAll()
+	return &pb.Response{Consignments: consignments}, nil
 }
 
 func main() {
