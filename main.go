@@ -5,13 +5,12 @@ package main
 import (
 	// 导入生成的 protobuf 代码
 	"context"
-	"log"
-	"net"
+	"fmt"
+	"reflect"
 
 	pb "consignment-service/proto/consignment"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	micro "github.com/micro/go-micro"
 )
 
 const (
@@ -45,35 +44,69 @@ type service struct {
 }
 
 // CreateConsignment - 目前只创建了这个方法，包括 `ctx` (环境信息)和 `req`(委托请求)两个参数，会通过 gRPC 服务器进行处理
-func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment) (*pb.Response, error) {
-	// 保存委托
+// func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment) (*pb.Response, error) {
+// 	// 保存委托
+// 	consignment, err := s.repo.Create(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// 返回和 protobuf 中定义匹配的 `Response` 消息
+// 	return &pb.Response{Created: true, Consignment: consignment}, nil
+// }
+
+// func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest) (*pb.Response, error) {
+// 	consignments := s.repo.GetAll()
+// 	return &pb.Response{Consignments: consignments}, nil
+// }
+
+func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment, res *pb.Response) error {
+	// Save our consignment
 	consignment, err := s.repo.Create(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	// 返回和 protobuf 中定义匹配的 `Response` 消息
-	return &pb.Response{Created: true, Consignment: consignment}, nil
+	// Return matching the `Response` message we created in our
+	// protobuf definition.
+	res.Created = true
+	res.Consignment = consignment
+	return nil
 }
 
-func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest) (*pb.Response, error) {
+func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest, res *pb.Response) error {
 	consignments := s.repo.GetAll()
-	return &pb.Response{Consignments: consignments}, nil
+	res.Consignments = consignments
+	return nil
 }
 
 func main() {
 
-	repo := &Repository{}
+	// repo := &Repository{}
 	// 启动 gRPC 服务器。
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+	// lis, err := net.Listen("tcp", port)
+	// if err != nil {
+	// 	log.Fatalf("failed to listen: %v", err)
+	// }
+	// s := grpc.NewServer()
+	// // 注册服务到 gRPC 服务器，会把已定义的 protobuf 与自动生成的代码接口进行绑定。
+	// pb.RegisterShippingServiceServer(s, &service{repo})
+	// // 在 gRPC 服务器上注册 reflection 服务。
+	// reflection.Register(s)
+	// if err := s.Serve(lis); err != nil {
+	// 	log.Fatalf("failed to serve: %v", err)
+	// }
+
+	repo := &Repository{}
+	srv := micro.NewService(
+		// This name must match the package name given in your protobuf definition
+		micro.Name("go.micro.srv.consignment"),
+		micro.Version("latest"),
+	)
+	// Init will parse the command line flags.
+	srv.Init()
+	// Register handler
+	pb.RegisterShippingServiceHandler(srv.Server(), &service{repo}) // Run the server
+	if err := srv.Run(); err != nil {
+		fmt.Println(err)
 	}
-	s := grpc.NewServer()
-	// 注册服务到 gRPC 服务器，会把已定义的 protobuf 与自动生成的代码接口进行绑定。
-	pb.RegisterShippingServiceServer(s, &service{repo})
-	// 在 gRPC 服务器上注册 reflection 服务。
-	reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	reflect.TypeOf("majun")
 }
